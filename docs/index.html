@@ -9,18 +9,18 @@
 <style>
 :root{
   --bg:#f5f6f4; --surface:#ffffff; --surface-2:#eef0ec; --text:#17201b; --muted:#5f6b64; --line:#dde2dc;
-  --accent:#13a26b; --accent-soft:#d9f2e6; --accent-2:#2f6fd6; --danger:#c2412d;
+  --accent:#13a26b; --accent-soft:#d9f2e6; --accent-2:#2f6fd6; --accent-3:#d9822b; --danger:#c2412d;
   --radius:14px; --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 14px rgba(0,0,0,.04);
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
     --bg:#0f1412; --surface:#171e1a; --surface-2:#1f2823; --text:#e7ece8; --muted:#97a49c; --line:#2a352f;
-    --accent:#2fc488; --accent-soft:#16392a; --accent-2:#6d9df0; --danger:#ef7b67; --shadow:none;
+    --accent:#2fc488; --accent-soft:#16392a; --accent-2:#6d9df0; --accent-3:#f0a35a; --danger:#ef7b67; --shadow:none;
   }
 }
 :root[data-theme="dark"]{
   --bg:#0f1412; --surface:#171e1a; --surface-2:#1f2823; --text:#e7ece8; --muted:#97a49c; --line:#2a352f;
-  --accent:#2fc488; --accent-soft:#16392a; --accent-2:#6d9df0; --danger:#ef7b67; --shadow:none;
+  --accent:#2fc488; --accent-soft:#16392a; --accent-2:#6d9df0; --accent-3:#f0a35a; --danger:#ef7b67; --shadow:none;
 }
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--text)}
@@ -136,9 +136,9 @@ footer{color:var(--muted);font-size:12px;text-align:center;margin-top:8px}
   <section class="card">
     <div class="card-h">
       <h2>Andamento</h2>
-      <div class="legend"><span><i style="background:var(--accent)"></i>Registrazioni</span><span><i style="background:var(--accent-2)"></i>FTD</span></div>
+      <div class="legend"><span><i style="background:var(--accent)"></i>Registrazioni</span><span><i style="background:var(--accent-2)"></i>FTD</span><span class="lg-cpa"><i style="background:var(--accent-3)"></i>CPA attive</span></div>
     </div>
-    <svg id="chart" role="img" aria-label="Registrazioni e FTD nel periodo"></svg>
+    <svg id="chart" role="img" aria-label="Registrazioni, FTD e CPA attive nel periodo"></svg>
   </section>
 
   <section class="card">
@@ -151,7 +151,7 @@ footer{color:var(--muted);font-size:12px;text-align:center;margin-top:8px}
     </div>
     <div class="tbl-wrap"><table id="tbl"><thead></thead><tbody></tbody><tfoot></tfoot></table></div>
   </section>
-  <footer>Dati senza commissioni. Aggiornamento automatico ogni ora circa.</footer>
+  <footer id="foot">Aggiornamento automatico ogni ora circa.</footer>
 </div>
 <div id="tip" class="tip hidden"></div>
 
@@ -205,6 +205,8 @@ footer{color:var(--muted);font-size:12px;text-align:center;margin-top:8px}
     {k:'registrations', l:'Registrazioni', f:fmtInt},
     {k:'ftd', l:'FTD', f:fmtInt},
     {k:'ftde', l:'FTD idonei', f:fmtInt},
+    {k:'cpaActive', l:'CPA attive', f:fmtInt},
+    {k:'cpaValue', l:'Valore CPA', f:fmtMoney},
     {k:'clicks', l:'Click', f:fmtInt},
     {k:'impressions', l:'Impression', f:fmtInt},
     {k:'ftdAmount', l:'Importo FTD', f:fmtMoney},
@@ -213,10 +215,14 @@ footer{color:var(--muted);font-size:12px;text-align:center;margin-top:8px}
   ];
   const DIM_LABEL = {date:'Giorno', month:'Mese', campaign:'Serial ID', country:'Paese', affiliateID:'Sub-affiliato'};
 
+  let PAYOUT = null;
   let ROWS = [], metrics = [], state = {from:'', to:'', campaign:'', country:'', aff:'', group:'date', sort:null};
 
   function start(data){
     ROWS = (data.rows || []).filter(r => r.date);
+    PAYOUT = data.cpaPayout || null;
+    if (PAYOUT) $('#foot').textContent = `Valore CPA calcolato a ${fmtMoney.format(PAYOUT)} per ogni CPA attiva (gli storni contano in negativo). Aggiornamento automatico ogni ora circa.`;
+    if (!ROWS.some(r => r.cpaActive != null)) document.querySelectorAll('.lg-cpa').forEach(e => e.remove());
     metrics = METRICS.filter(m => ROWS.some(r => r[m.k] != null));
     $('#gate').classList.add('hidden'); $('#app').classList.remove('hidden');
     const upd = new Date(data.updatedAt);
@@ -279,8 +285,8 @@ footer{color:var(--muted);font-size:12px;text-align:center;margin-top:8px}
 
   function renderKpis(t){
     const tiles = [];
-    for (const m of metrics.filter(m => ['registrations','ftd','clicks','depositsAmount'].includes(m.k)))
-      tiles.push(`<div class="kpi"><div class="l">${m.l}</div><div class="v num">${m.f.format(t[m.k])}</div></div>`);
+    for (const m of metrics.filter(m => ['registrations','ftd','cpaActive','cpaValue','clicks','depositsAmount'].includes(m.k)))
+      tiles.push(`<div class="kpi"><div class="l">${m.l}</div><div class="v num">${m.f.format(t[m.k])}</div>${m.k === 'cpaValue' && PAYOUT ? `<div class="s">${fmtMoney.format(PAYOUT)} per CPA attiva</div>` : ''}</div>`);
     if ('registrations' in t && 'ftd' in t)
       tiles.splice(2, 0, `<div class="kpi"><div class="l">Conversione</div><div class="v num">${t.registrations ? fmtPct.format(t.ftd / t.registrations) : '–'}</div><div class="s">FTD su registrazioni</div></div>`);
     $('#kpis').innerHTML = tiles.join('');
@@ -294,12 +300,13 @@ footer{color:var(--muted);font-size:12px;text-align:center;margin-top:8px}
     const keyOf = (r) => byMonth ? r.date.slice(0,7) : r.date;
     const buckets = new Map();
     const cur = d(state.from);
-    while (iso(cur) <= state.to){ const k = byMonth ? iso(cur).slice(0,7) : iso(cur); if (!buckets.has(k)) buckets.set(k, {reg:0, ftd:0}); cur.setDate(cur.getDate()+1); }
-    for (const r of rows){ const b = buckets.get(keyOf(r)); if (b){ b.reg += +r.registrations || 0; b.ftd += +r.ftd || 0; } }
+    while (iso(cur) <= state.to){ const k = byMonth ? iso(cur).slice(0,7) : iso(cur); if (!buckets.has(k)) buckets.set(k, {reg:0, ftd:0, cpa:0}); cur.setDate(cur.getDate()+1); }
+    for (const r of rows){ const b = buckets.get(keyOf(r)); if (b){ b.reg += +r.registrations || 0; b.ftd += +r.ftd || 0; b.cpa += +r.cpaActive || 0; } }
+    const hasCpa = rows.some(r => r.cpaActive != null);
     const data = [...buckets.entries()];
-    const max = Math.max(1, ...data.map(([,v]) => Math.max(v.reg, v.ftd)));
+    const max = Math.max(1, ...data.map(([,v]) => Math.max(v.reg, v.ftd, v.cpa)));
     const nice = max <= 5 ? max : Math.ceil(max / 5) * 5;
-    const cw = (W - P.l - P.r) / Math.max(1, data.length), bw = Math.max(2, Math.min(18, cw * 0.38));
+    const cw = (W - P.l - P.r) / Math.max(1, data.length), ns = hasCpa ? 3 : 2, bw = Math.max(1.5, Math.min(16, cw * 0.8 / ns - 1));
     const y = (v) => P.t + (H - P.t - P.b) * (1 - v / nice);
     let g = '';
     for (const v of [0, nice/2, nice]) g += `<line x1="${P.l}" x2="${W-P.r}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${P.l-6}" y="${y(v)+4}" text-anchor="end">${Number.isInteger(v)?v:v.toFixed(1)}</text>`;
@@ -308,15 +315,16 @@ footer{color:var(--muted);font-size:12px;text-align:center;margin-top:8px}
       const x = P.l + cw * i + cw / 2;
       const lab = byMonth ? fmtMon.format(d(k + '-01')) : fmtDay.format(d(k));
       g += `<rect class="hit" data-i="${i}" x="${P.l + cw*i}" y="${P.t}" width="${cw}" height="${H-P.t-P.b}" fill="transparent"/>`;
-      g += `<rect x="${x - bw - 1}" y="${y(v.reg)}" width="${bw}" height="${Math.max(0, y(0)-y(v.reg))}" rx="2" fill="var(--accent)" pointer-events="none"/>`;
-      g += `<rect x="${x + 1}" y="${y(v.ftd)}" width="${bw}" height="${Math.max(0, y(0)-y(v.ftd))}" rx="2" fill="var(--accent-2)" pointer-events="none"/>`;
+      const x0 = x - (ns * (bw + 1)) / 2;
+      const bars = [[v.reg, 'var(--accent)'], [v.ftd, 'var(--accent-2)'], ...(hasCpa ? [[Math.max(0, v.cpa), 'var(--accent-3)']] : [])];
+      bars.forEach(([val, col], j) => { g += `<rect x="${x0 + j * (bw + 1)}" y="${y(val)}" width="${bw}" height="${Math.max(0, y(0)-y(val))}" rx="1.5" fill="${col}" pointer-events="none"/>`; });
       if (i % step === 0) g += `<text x="${x}" y="${H-6}" text-anchor="middle">${byMonth ? lab.split(' ')[0].slice(0,3) : lab.slice(0,6)}</text>`;
     });
     svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.innerHTML = g;
     const tip = $('#tip');
     svg.querySelectorAll('.hit').forEach(el => {
       const show = (ev) => { const [k, v] = data[+el.dataset.i]; const lab = byMonth ? fmtMon.format(d(k + '-01')) : fmtDay.format(d(k));
-        tip.textContent = `${lab} · ${v.reg} registrazioni · ${v.ftd} FTD`; tip.classList.remove('hidden');
+        tip.textContent = `${lab} · ${v.reg} registrazioni · ${v.ftd} FTD` + (hasCpa ? ` · ${v.cpa} CPA` : ''); tip.classList.remove('hidden');
         const p = ev.touches ? ev.touches[0] : ev; tip.style.left = p.clientX + 'px'; tip.style.top = p.clientY + 'px'; };
       el.addEventListener('mousemove', show); el.addEventListener('touchstart', show, {passive:true});
       el.addEventListener('mouseleave', () => tip.classList.add('hidden'));

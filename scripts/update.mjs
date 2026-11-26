@@ -6,6 +6,8 @@
 //   REPORT_PASSWORD              password della pagina per i sub-affiliati (GitHub Secret)
 //   BACKFILL_MONTHS              mesi di storico da scaricare al primo avvio (default 12)
 //   REFRESH_DAYS                 giorni recenti riscaricati a ogni giro (default 45)
+//   SERIAL_FILTER                tiene solo i Serial ID che contengono questo testo (maiuscole/minuscole indifferenti)
+//   CPA_PAYOUT                   valore in $ mostrato per ogni CPA attiva (es. 200)
 //   MOCK_FILE                    solo per i test: legge le righe da un file invece del portale
 //
 // Regola d'oro: nei log non si stampano MAI valori dei dati (il repo è pubblico),
@@ -76,7 +78,7 @@ function normDate(v) {
 
 // ---------- pulizia righe ----------
 const seenDropped = new Set();
-function clean(row, countries) {
+function clean(row, countries, cpa) {
   const out = {};
   for (const [k, v] of Object.entries(row)) {
     if (!ALLOW.includes(k) || DENY.test(k)) { seenDropped.add(k); continue; }
@@ -84,7 +86,28 @@ function clean(row, countries) {
   }
   if ('date' in out) out.date = normDate(out.date);
   if ('countryId' in out) { out.country = countries[out.countryId] || ''; delete out.countryId; }
+  // CPA attive = commissioni CPA del giorno / tariffa reale (gli storni danno valori negativi).
+  // La tariffa reale e l'importo originale NON vengono pubblicati: solo il numero di CPA e il valore a CPA_PAYOUT.
+  if (cpa) {
+    const amount = Number(row.cpaCommissions) || 0;
+    const n = cpa.rate ? Math.round(amount / cpa.rate) : (Number(row.ftde) || 0);
+    out.cpaActive = n;
+    if (cpa.payout) out.cpaValue = n * cpa.payout;
+  }
   return out;
+}
+
+// Deduce la tariffa CPA reale dai dati (valore più frequente di commissione per FTD idoneo).
+function inferCpaRate(rows) {
+  const count = new Map();
+  for (const r of rows) {
+    const amt = Number(r.cpaCommissions) || 0;
+    const n = Number(r.ftde) || Number(r.ftd) || 0;
+    if (amt > 0 && n > 0) { const v = Math.round(amt / n); count.set(v, (count.get(v) || 0) + 1); }
+  }
+  if (count.size) return [...count.entries()].sort((a, b) => b[1] - a[1])[0][0];
+  const pos = rows.map((r) => Math.abs(Number(r.cpaCommissions) || 0)).filter((x) => x > 0);
+  return pos.length ? Math.min(...pos) : null;
 }
 const rowKey = (r) => [r.date, r.campaign, r.country, r.bannerName, r.affiliateID].join('|');
 
@@ -165,11 +188,15 @@ async function main() {
   const reportPassword = need('REPORT_PASSWORD');
   const backfillMonths = Number(process.env.BACKFILL_MONTHS || 12);
   const refreshDays = Number(process.env.REFRESH_DAYS || 45);
+  const serialFilter = (process.env.SERIAL_FILTER || '').trim().toLowerCase();
+  const payout = Number(process.env.CPA_PAYOUT || 0);
+  const config = { v: 2, serialFilter, payout };
 
   let prev = null;
   if (existsSync(OUT)) {
     try { prev = await decrypt(JSON.parse(await readFile(OUT, 'utf8')), reportPassword); log(`Dati esistenti: ${prev.rows.length} righe.`); }
     catch { log('Non riesco a leggere i dati esistenti (password cambiata?): li ricreo da zero.'); }
+    if (prev && JSON.stringify(prev.config) !== JSON.stringify(config)) { log('Impostazioni cambiate (filtro o valore CPA): ricreo i dati da zero.'); prev = null; }
   }
 
   const today = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate()));
@@ -187,21 +214,27 @@ async function main() {
       if (c.status === 200) for (const x of JSON.parse(c.text)) countries[x.id] = x.name;
       // 1) Trovo una combinazione di colonne accettata dal server, provando sugli ultimi 14 giorni.
       const pp = portal.portalParams;
-      const combos = [
-        { group: GROUP, select: SELECT, aff: true },
-        { group: GROUP, select: SELECT, aff: false },
-        ...(pp ? [{ group: Number(pp.Group), select: Number(pp.Select), aff: pp.ShowAffiliateID === 'true' }] : []),
+      // Con il filtro Serial ID servono per forza le combinazioni che includono il Serial ID (Group +4).
+      const withSerial = [
+        { group: 1 + 4, select: 4 + 2, aff: false },
         { group: 1 + 4, select: 4 + 2 + 16, aff: false },
-        { group: 1, select: 4 + 2 + 16, aff: false },
+        { group: 1 + 4, select: 4, aff: false },
+        { group: 1 + 4, select: 4 + 2, aff: true },
+      ];
+      const dateOnly = [
+        ...(pp ? [{ group: Number(pp.Group), select: Number(pp.Select), aff: pp.ShowAffiliateID === 'true' }] : []),
         { group: 1, select: 4 + 2, aff: false },
         { group: 1, select: 4, aff: false },
       ];
+      const combos = serialFilter ? withSerial : [...withSerial, ...dateOnly];
       let combo = null;
       for (const c of combos) {
         try { await fetchRange(portal, addDays(today, -14), addDays(today, -1), c); combo = c; break; }
         catch (e) { log(`Combinazione ${JSON.stringify(c)} rifiutata: ${e.message}`); }
       }
-      if (!combo) throw new Error('Il server ha rifiutato tutte le combinazioni di colonne.');
+      if (!combo) throw new Error(serialFilter
+        ? 'Il server non accetta il dettaglio per Serial ID: non pubblico nulla per non mostrare i dati di tutti.'
+        : 'Il server ha rifiutato tutte le combinazioni di colonne.');
       log('Combinazione accettata:', JSON.stringify(combo));
 
       // 2) Scarico a blocchi di 30 giorni. Se un blocco vecchio viene rifiutato, lo salto.
@@ -223,7 +256,20 @@ async function main() {
   }
 
   if (raw.length) log('Colonne ricevute dal portale:', Object.keys(Object.assign({}, ...raw.slice(0, 50))).join(', '));
-  const fresh = raw.map((r) => clean(r, countries));
+
+  // Tariffa CPA dedotta da TUTTE le righe (più dati = stima più sicura). Non viene mai stampata.
+  const rate = inferCpaRate(raw);
+  log(rate ? 'Tariffa CPA dedotta dai dati (non mostrata).' : 'Tariffa CPA non deducibile: conto le CPA dagli FTD idonei.');
+
+  // Filtro Serial ID: le righe degli altri vengono scartate qui, prima di qualsiasi salvataggio.
+  if (serialFilter) {
+    if (!raw.some((r) => 'campaign' in r)) throw new Error('Il portale non ha restituito il Serial ID: non pubblico nulla.');
+    const serials = new Set(raw.map((r) => String(r.campaign ?? '')));
+    raw = raw.filter((r) => String(r.campaign ?? '').toLowerCase().includes(serialFilter));
+    const kept = new Set(raw.map((r) => String(r.campaign)));
+    log(`Filtro Serial ID: ${kept.size} Serial ID su ${serials.size} corrispondono, ${raw.length} righe tenute.`);
+  }
+  const fresh = raw.map((r) => clean(r, countries, { rate, payout }));
   if (seenDropped.size) log('Colonne ESCLUSE dalla pagina:', [...seenDropped].join(', '));
 
   // Unione con lo storico: i giorni nella finestra appena scaricata vengono sostituiti.
@@ -236,7 +282,7 @@ async function main() {
   const same = prev && JSON.stringify(prev.rows) === JSON.stringify(rows);
   if (same) { log(`Nessuna novità (${rows.length} righe): non scrivo nulla.`); return; }
 
-  const payload = { updatedAt: new Date().toISOString(), rows };
+  const payload = { updatedAt: new Date().toISOString(), config, cpaPayout: payout || null, rows };
   await writeFile(OUT, JSON.stringify(await encrypt(payload, reportPassword)) + '\n');
   log(`Dati aggiornati e cifrati: ${rows.length} righe.`);
 }
