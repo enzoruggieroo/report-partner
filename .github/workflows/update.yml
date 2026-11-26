@@ -1,0 +1,49 @@
+name: Aggiorna report
+
+on:
+  schedule:
+    - cron: '17 * * * *'   # ogni ora al minuto 17 (GitHub può ritardare di qualche minuto)
+  workflow_dispatch:
+    inputs:
+      backfill_months:
+        description: 'Mesi di storico da scaricare se i dati vanno ricreati'
+        default: '12'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: aggiorna-report
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    container: mcr.microsoft.com/playwright:v1.64.1-noble
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installa dipendenze
+        run: npm ci --ignore-scripts
+
+      - name: Scarica, togli le commissioni e cifra
+        env:
+          ETORO_EMAIL: ${{ secrets.ETORO_EMAIL }}
+          ETORO_PASSWORD: ${{ secrets.ETORO_PASSWORD }}
+          REPORT_PASSWORD: ${{ secrets.REPORT_PASSWORD }}
+          BACKFILL_MONTHS: ${{ inputs.backfill_months || '12' }}
+        run: node scripts/update.mjs
+
+      - name: Pubblica se ci sono novità
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git config user.name "report-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/data.enc.json
+          if git diff --cached --quiet; then
+            echo "Nessuna novità da pubblicare."
+          else
+            git commit -m "Aggiorna dati report"
+            git push
+          fi

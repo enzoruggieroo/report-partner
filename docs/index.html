@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Report Partner</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2313a26b'/%3E%3Cpath d='M8 22V14M14 22V9M20 22v-6M26 22V12' stroke='white' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#f5f6f4; --surface:#ffffff; --surface-2:#eef0ec; --text:#17201b; --muted:#5f6b64; --line:#dde2dc;
+  --accent:#13a26b; --accent-soft:#d9f2e6; --accent-2:#2f6fd6; --danger:#c2412d;
+  --radius:14px; --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 14px rgba(0,0,0,.04);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1412; --surface:#171e1a; --surface-2:#1f2823; --text:#e7ece8; --muted:#97a49c; --line:#2a352f;
+    --accent:#2fc488; --accent-soft:#16392a; --accent-2:#6d9df0; --danger:#ef7b67; --shadow:none;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1412; --surface:#171e1a; --surface-2:#1f2823; --text:#e7ece8; --muted:#97a49c; --line:#2a352f;
+  --accent:#2fc488; --accent-soft:#16392a; --accent-2:#6d9df0; --danger:#ef7b67; --shadow:none;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text)}
+body{font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1040px;margin:0 auto;padding:16px 16px 48px}
+.num{font-variant-numeric:tabular-nums}
+button,input,select{font:inherit;color:inherit}
+.hidden{display:none!important}
+
+/* gate */
+.gate{min-height:100vh;display:grid;place-items:center;padding:16px}
+.gate-card{width:100%;max-width:360px;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:28px 22px;box-shadow:var(--shadow)}
+.logo{width:40px;height:40px;border-radius:11px;background:var(--accent);display:grid;place-items:center;margin-bottom:14px}
+.gate h1{font-size:20px;margin:0 0 4px}
+.gate p{margin:0 0 18px;color:var(--muted)}
+.field{width:100%;padding:12px 14px;border-radius:10px;border:1px solid var(--line);background:var(--surface-2);outline:none}
+.field:focus{border-color:var(--accent)}
+.check{display:flex;gap:8px;align-items:center;margin:12px 0 16px;color:var(--muted);font-size:14px}
+.btn{width:100%;padding:12px;border:0;border-radius:10px;background:var(--accent);color:#fff;font-weight:600;cursor:pointer}
+.btn:disabled{opacity:.6}
+.err{color:var(--danger);font-size:14px;min-height:20px;margin-top:10px}
+
+/* header */
+header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin:4px 0 16px}
+header h1{font-size:22px;margin:0}
+.meta{color:var(--muted);font-size:13px;margin-top:2px}
+.ghost{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 12px;cursor:pointer;font-size:14px;white-space:nowrap}
+
+/* filters */
+.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:10px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 13px;font-size:14px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:16px}
+.filters label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+.filters input,.filters select{padding:9px 10px;border-radius:10px;border:1px solid var(--line);background:var(--surface);min-width:0;width:100%}
+
+/* kpis */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px;box-shadow:var(--shadow)}
+.kpi .l{font-size:13px;color:var(--muted)}
+.kpi .v{font-size:26px;font-weight:650;letter-spacing:-.02em;margin-top:2px}
+.kpi .s{font-size:12px;color:var(--muted);margin-top:2px}
+
+/* cards */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:16px;box-shadow:var(--shadow)}
+.card-h{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.card-h h2{font-size:16px;margin:0}
+.legend{display:flex;gap:14px;font-size:13px;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+#chart{width:100%;height:220px;display:block}
+#chart text{fill:var(--muted);font-size:11px}
+.tip{position:fixed;pointer-events:none;background:var(--text);color:var(--bg);font-size:12px;padding:6px 9px;border-radius:8px;white-space:nowrap;z-index:9;transform:translate(-50%,-115%)}
+.seg{display:inline-flex;background:var(--surface-2);border-radius:10px;padding:3px;gap:2px;flex-wrap:wrap}
+.seg button{border:0;background:none;padding:6px 10px;border-radius:8px;font-size:13px;cursor:pointer;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--text);box-shadow:var(--shadow)}
+
+/* table */
+.tbl-wrap{overflow-x:auto;margin:0 -16px;padding:0 16px}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:10px 10px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:var(--surface)}
+th{font-size:12px;color:var(--muted);font-weight:600;cursor:pointer;user-select:none}
+tfoot td{font-weight:650;border-bottom:0;border-top:2px solid var(--line)}
+.empty{color:var(--muted);text-align:center;padding:28px 0}
+footer{color:var(--muted);font-size:12px;text-align:center;margin-top:8px}
+</style>
+</head>
+<body>
+
+<!-- Accesso -->
+<div id="gate" class="gate">
+  <form id="gateForm" class="gate-card" autocomplete="on">
+    <div class="logo"><svg width="22" height="22" viewBox="0 0 32 32" fill="none"><path d="M8 24V15M14 24V9M20 24v-7M26 24V12" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/></svg></div>
+    <h1>Report Partner</h1>
+    <p>Inserisci la password che ti è stata data.</p>
+    <input type="text" name="username" value="report" autocomplete="username" class="hidden" aria-hidden="true">
+    <input id="pw" class="field" type="password" placeholder="Password" autocomplete="current-password" required>
+    <label class="check"><input id="remember" type="checkbox" checked> Ricordami su questo dispositivo</label>
+    <button id="go" class="btn" type="submit">Apri il report</button>
+    <div id="err" class="err" role="alert"></div>
+  </form>
+</div>
+
+<!-- Report -->
+<div id="app" class="wrap hidden">
+  <header>
+    <div>
+      <h1>Report Partner</h1>
+      <div class="meta" id="meta"></div>
+    </div>
+    <button class="ghost" id="lock" type="button">Esci</button>
+  </header>
+
+  <div class="chips" id="presets" role="group" aria-label="Periodo">
+    <button class="chip" data-p="7">7 giorni</button>
+    <button class="chip" data-p="30">30 giorni</button>
+    <button class="chip" data-p="month">Questo mese</button>
+    <button class="chip" data-p="prev">Mese scorso</button>
+    <button class="chip" data-p="year">Quest'anno</button>
+    <button class="chip" data-p="all">Tutto</button>
+  </div>
+  <div class="filters">
+    <label>Dal<input type="date" id="from"></label>
+    <label>Al<input type="date" id="to"></label>
+    <label id="f-campaign">Serial ID<select id="campaign"></select></label>
+    <label id="f-country">Paese<select id="country"></select></label>
+    <label id="f-aff">Sub-affiliato<select id="aff"></select></label>
+  </div>
+
+  <section class="kpis" id="kpis"></section>
+
+  <section class="card">
+    <div class="card-h">
+      <h2>Andamento</h2>
+      <div class="legend"><span><i style="background:var(--accent)"></i>Registrazioni</span><span><i style="background:var(--accent-2)"></i>FTD</span></div>
+    </div>
+    <svg id="chart" role="img" aria-label="Registrazioni e FTD nel periodo"></svg>
+  </section>
+
+  <section class="card">
+    <div class="card-h">
+      <h2>Dettaglio</h2>
+      <div class="seg" id="groupBy" role="group" aria-label="Raggruppa per">
+        <button data-g="date">Giorno</button><button data-g="month">Mese</button>
+        <button data-g="campaign">Serial ID</button><button data-g="country">Paese</button><button data-g="affiliateID">Sub-affiliato</button>
+      </div>
+    </div>
+    <div class="tbl-wrap"><table id="tbl"><thead></thead><tbody></tbody><tfoot></tfoot></table></div>
+  </section>
+  <footer>Dati senza commissioni. Aggiornamento automatico ogni ora circa.</footer>
+</div>
+<div id="tip" class="tip hidden"></div>
+
+<script>
+(() => {
+  const $ = (s) => document.querySelector(s);
+  const store = { get(k){try{return localStorage.getItem(k)}catch{return null}}, set(k,v){try{localStorage.setItem(k,v)}catch{}}, del(k){try{localStorage.removeItem(k)}catch{}} };
+  const KEY = 'rp_pw';
+
+  // ---------- decifratura ----------
+  const unb64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+  async function decrypt(box, pw){
+    const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveKey']);
+    const key = await crypto.subtle.deriveKey({name:'PBKDF2', salt:unb64(box.salt), iterations:box.iter, hash:'SHA-256'}, base, {name:'AES-GCM', length:256}, false, ['decrypt']);
+    const pt = await crypto.subtle.decrypt({name:'AES-GCM', iv:unb64(box.iv)}, key, unb64(box.ct));
+    return JSON.parse(new TextDecoder().decode(pt));
+  }
+  async function loadBox(){
+    const r = await fetch('data.enc.json?t=' + Date.now(), {cache:'no-store'});
+    if (!r.ok) throw new Error('nodata');
+    return r.json();
+  }
+
+  async function unlock(pw, remember){
+    $('#go').disabled = true; $('#err').textContent = '';
+    try{
+      const box = await loadBox();
+      const data = await decrypt(box, pw);
+      if (remember) store.set(KEY, pw); else store.del(KEY);
+      start(data);
+    }catch(e){
+      $('#err').textContent = e.message === 'nodata' ? 'Il report non è ancora disponibile. Riprova più tardi.' : 'Password errata.';
+      store.del(KEY);
+    }finally{ $('#go').disabled = false; }
+  }
+  $('#gateForm').addEventListener('submit', (e) => { e.preventDefault(); unlock($('#pw').value, $('#remember').checked); });
+  $('#lock').addEventListener('click', () => { store.del(KEY); location.reload(); });
+  const saved = store.get(KEY); if (saved) unlock(saved, true);
+
+  // ---------- report ----------
+  const fmtInt = new Intl.NumberFormat('it-IT', {useGrouping:'always'});
+  const fmtMoney = new Intl.NumberFormat('it-IT', {style:'currency', currency:'USD', currencyDisplay:'narrowSymbol', maximumFractionDigits:0, useGrouping:'always'});
+  const fmtPct = new Intl.NumberFormat('it-IT', {style:'percent', maximumFractionDigits:1});
+  const fmtDay = new Intl.DateTimeFormat('it-IT', {day:'2-digit', month:'short', year:'2-digit'});
+  const fmtMon = new Intl.DateTimeFormat('it-IT', {month:'long', year:'numeric'});
+  const d = (s) => new Date(s + 'T00:00:00');
+  const iso = (x) => `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;
+
+  // Metriche note (solo quelle presenti nei dati vengono mostrate)
+  const METRICS = [
+    {k:'registrations', l:'Registrazioni', f:fmtInt},
+    {k:'ftd', l:'FTD', f:fmtInt},
+    {k:'ftde', l:'FTD idonei', f:fmtInt},
+    {k:'clicks', l:'Click', f:fmtInt},
+    {k:'impressions', l:'Impression', f:fmtInt},
+    {k:'ftdAmount', l:'Importo FTD', f:fmtMoney},
+    {k:'depositsAmount', l:'Depositi', f:fmtMoney},
+    {k:'refundsAndChargebacks', l:'Rimborsi/chargeback', f:fmtMoney},
+  ];
+  const DIM_LABEL = {date:'Giorno', month:'Mese', campaign:'Serial ID', country:'Paese', affiliateID:'Sub-affiliato'};
+
+  let ROWS = [], metrics = [], state = {from:'', to:'', campaign:'', country:'', aff:'', group:'date', sort:null};
+
+  function start(data){
+    ROWS = (data.rows || []).filter(r => r.date);
+    metrics = METRICS.filter(m => ROWS.some(r => r[m.k] != null));
+    $('#gate').classList.add('hidden'); $('#app').classList.remove('hidden');
+    const upd = new Date(data.updatedAt);
+    $('#meta').textContent = 'Dati cambiati l\'ultima volta: ' + upd.toLocaleString('it-IT', {dateStyle:'medium', timeStyle:'short'});
+    lastCheck();
+
+    fillSelect('campaign', 'f-campaign', 'Tutti');
+    fillSelect('country', 'f-country', 'Tutti');
+    fillSelect('affiliateID', 'f-aff', 'Tutti', 'aff');
+    for (const b of document.querySelectorAll('#groupBy button')){
+      const g = b.dataset.g;
+      if (g !== 'date' && g !== 'month' && new Set(ROWS.map(r => r[g] ?? '')).size < 2) b.classList.add('hidden');
+      b.onclick = () => { state.group = g; state.sort = null; render(); };
+    }
+    for (const b of document.querySelectorAll('#presets .chip')) b.onclick = () => preset(b.dataset.p);
+    $('#from').onchange = (e) => { state.from = e.target.value; markPreset(null); render(); };
+    $('#to').onchange = (e) => { state.to = e.target.value; markPreset(null); render(); };
+    preset('30');
+  }
+
+  function fillSelect(key, wrapId, allLabel, stateKey){
+    const sel = $('#' + (stateKey || key));
+    const vals = [...new Set(ROWS.map(r => r[key]).filter(v => v != null && v !== ''))].sort((a,b) => String(a).localeCompare(String(b), 'it', {numeric:true}));
+    if (vals.length < 2){ $('#' + wrapId).classList.add('hidden'); return; }
+    sel.innerHTML = `<option value="">${allLabel}</option>` + vals.map(v => `<option>${esc(v)}</option>`).join('');
+    sel.onchange = () => { state[stateKey || key] = sel.value; render(); };
+  }
+  const esc = (s) => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+  function preset(p){
+    const now = new Date(); const today = iso(now);
+    const first = ROWS.length ? ROWS[0].date : today;
+    let from = first, to = today;
+    if (p === '7' || p === '30'){ const x = new Date(now); x.setDate(x.getDate() - (+p - 1)); from = iso(x); }
+    if (p === 'month') from = iso(new Date(now.getFullYear(), now.getMonth(), 1));
+    if (p === 'prev'){ from = iso(new Date(now.getFullYear(), now.getMonth()-1, 1)); to = iso(new Date(now.getFullYear(), now.getMonth(), 0)); }
+    if (p === 'year') from = iso(new Date(now.getFullYear(), 0, 1));
+    state.from = from; state.to = to; $('#from').value = from; $('#to').value = to;
+    markPreset(p); render();
+  }
+  function markPreset(p){ for (const b of document.querySelectorAll('#presets .chip')) b.setAttribute('aria-pressed', String(b.dataset.p === p)); }
+
+  function filtered(){
+    return ROWS.filter(r => (!state.from || r.date >= state.from) && (!state.to || r.date <= state.to)
+      && (!state.campaign || String(r.campaign) === state.campaign)
+      && (!state.country || r.country === state.country)
+      && (!state.aff || String(r.affiliateID) === state.aff));
+  }
+  function sum(rows){
+    const t = {}; for (const m of metrics) t[m.k] = 0;
+    for (const r of rows) for (const m of metrics) t[m.k] += Number(r[m.k]) || 0;
+    return t;
+  }
+
+  function render(){
+    for (const b of document.querySelectorAll('#groupBy button')) b.setAttribute('aria-pressed', String(b.dataset.g === state.group));
+    const rows = filtered(); const t = sum(rows);
+    renderKpis(t); renderChart(rows); renderTable(rows, t);
+  }
+
+  function renderKpis(t){
+    const tiles = [];
+    for (const m of metrics.filter(m => ['registrations','ftd','clicks','depositsAmount'].includes(m.k)))
+      tiles.push(`<div class="kpi"><div class="l">${m.l}</div><div class="v num">${m.f.format(t[m.k])}</div></div>`);
+    if ('registrations' in t && 'ftd' in t)
+      tiles.splice(2, 0, `<div class="kpi"><div class="l">Conversione</div><div class="v num">${t.registrations ? fmtPct.format(t.ftd / t.registrations) : '–'}</div><div class="s">FTD su registrazioni</div></div>`);
+    $('#kpis').innerHTML = tiles.join('');
+  }
+
+  function renderChart(rows){
+    const svg = $('#chart'); const W = svg.clientWidth || 600, H = 220, P = {l:30, r:8, t:10, b:24};
+    // un punto per giorno (o per mese se il periodo è lungo)
+    const days = (d(state.to) - d(state.from)) / 864e5 + 1;
+    const byMonth = days > 120;
+    const keyOf = (r) => byMonth ? r.date.slice(0,7) : r.date;
+    const buckets = new Map();
+    const cur = d(state.from);
+    while (iso(cur) <= state.to){ const k = byMonth ? iso(cur).slice(0,7) : iso(cur); if (!buckets.has(k)) buckets.set(k, {reg:0, ftd:0}); cur.setDate(cur.getDate()+1); }
+    for (const r of rows){ const b = buckets.get(keyOf(r)); if (b){ b.reg += +r.registrations || 0; b.ftd += +r.ftd || 0; } }
+    const data = [...buckets.entries()];
+    const max = Math.max(1, ...data.map(([,v]) => Math.max(v.reg, v.ftd)));
+    const nice = max <= 5 ? max : Math.ceil(max / 5) * 5;
+    const cw = (W - P.l - P.r) / Math.max(1, data.length), bw = Math.max(2, Math.min(18, cw * 0.38));
+    const y = (v) => P.t + (H - P.t - P.b) * (1 - v / nice);
+    let g = '';
+    for (const v of [0, nice/2, nice]) g += `<line x1="${P.l}" x2="${W-P.r}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${P.l-6}" y="${y(v)+4}" text-anchor="end">${Number.isInteger(v)?v:v.toFixed(1)}</text>`;
+    const step = Math.ceil(data.length / Math.max(1, Math.floor((W - P.l) / 64)));
+    data.forEach(([k, v], i) => {
+      const x = P.l + cw * i + cw / 2;
+      const lab = byMonth ? fmtMon.format(d(k + '-01')) : fmtDay.format(d(k));
+      g += `<rect class="hit" data-i="${i}" x="${P.l + cw*i}" y="${P.t}" width="${cw}" height="${H-P.t-P.b}" fill="transparent"/>`;
+      g += `<rect x="${x - bw - 1}" y="${y(v.reg)}" width="${bw}" height="${Math.max(0, y(0)-y(v.reg))}" rx="2" fill="var(--accent)" pointer-events="none"/>`;
+      g += `<rect x="${x + 1}" y="${y(v.ftd)}" width="${bw}" height="${Math.max(0, y(0)-y(v.ftd))}" rx="2" fill="var(--accent-2)" pointer-events="none"/>`;
+      if (i % step === 0) g += `<text x="${x}" y="${H-6}" text-anchor="middle">${byMonth ? lab.split(' ')[0].slice(0,3) : lab.slice(0,6)}</text>`;
+    });
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.innerHTML = g;
+    const tip = $('#tip');
+    svg.querySelectorAll('.hit').forEach(el => {
+      const show = (ev) => { const [k, v] = data[+el.dataset.i]; const lab = byMonth ? fmtMon.format(d(k + '-01')) : fmtDay.format(d(k));
+        tip.textContent = `${lab} · ${v.reg} registrazioni · ${v.ftd} FTD`; tip.classList.remove('hidden');
+        const p = ev.touches ? ev.touches[0] : ev; tip.style.left = p.clientX + 'px'; tip.style.top = p.clientY + 'px'; };
+      el.addEventListener('mousemove', show); el.addEventListener('touchstart', show, {passive:true});
+      el.addEventListener('mouseleave', () => tip.classList.add('hidden'));
+    });
+  }
+  document.addEventListener('touchstart', (e) => { if (!e.target.closest?.('#chart')) $('#tip').classList.add('hidden'); }, {passive:true});
+  addEventListener('resize', () => { if (ROWS.length) render(); });
+
+  function renderTable(rows, total){
+    const g = state.group; const groups = new Map();
+    for (const r of rows){ const k = g === 'month' ? r.date.slice(0,7) : (r[g] ?? '—'); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(r); }
+    let list = [...groups.entries()].map(([k, rs]) => ({k, t: sum(rs)}));
+    const s = state.sort || {col:'k', dir: (g === 'date' || g === 'month') ? -1 : 1};
+    if (!state.sort && g !== 'date' && g !== 'month') { s.col = metrics[0]?.k || 'k'; s.dir = -1; }
+    list.sort((a, b) => { const va = s.col === 'k' ? a.k : a.t[s.col], vb = s.col === 'k' ? b.k : b.t[s.col];
+      return (typeof va === 'number' ? va - vb : String(va).localeCompare(String(vb), 'it', {numeric:true})) * s.dir; });
+    const conv = metrics.some(m => m.k === 'registrations') && metrics.some(m => m.k === 'ftd');
+    const cols = [{k:'k', l:DIM_LABEL[g]}, ...metrics.map(m => ({k:m.k, l:m.l}))];
+    if (conv) cols.splice(3, 0, {k:'_conv', l:'Conv.'});
+    const label = (k) => g === 'date' ? fmtDay.format(d(k)) : g === 'month' ? fmtMon.format(d(k + '-01')) : esc(k);
+    const cell = (c, t) => c.k === '_conv' ? (t.registrations ? fmtPct.format(t.ftd / t.registrations) : '–') : metrics.find(m => m.k === c.k).f.format(t[c.k]);
+    $('#tbl thead').innerHTML = '<tr>' + cols.map(c => `<th data-c="${c.k}">${c.l}${s.col === c.k ? (s.dir > 0 ? ' ↑' : ' ↓') : ''}</th>`).join('') + '</tr>';
+    $('#tbl tbody').innerHTML = list.length ? list.map(x => '<tr>' + cols.map(c => `<td class="num">${c.k === 'k' ? label(x.k) : cell(c, x.t)}</td>`).join('') + '</tr>').join('')
+      : `<tr><td colspan="${cols.length}" class="empty">Nessun dato nel periodo scelto.</td></tr>`;
+    $('#tbl tfoot').innerHTML = list.length ? '<tr>' + cols.map(c => `<td class="num">${c.k === 'k' ? 'Totale' : cell(c, total)}</td>`).join('') + '</tr>' : '';
+    $('#tbl thead').querySelectorAll('th').forEach(th => th.onclick = () => {
+      const c = th.dataset.c; if (c === '_conv') return;
+      state.sort = {col:c, dir: s.col === c ? -s.dir : (c === 'k' ? 1 : -1)}; render();
+    });
+  }
+
+  // "Ultimo controllo": ora dell'ultima esecuzione riuscita dell'aggiornamento (API pubblica di GitHub)
+  async function lastCheck(){
+    try{
+      const [owner] = location.hostname.split('.'); const repo = location.pathname.split('/').filter(Boolean)[0];
+      if (!location.hostname.endsWith('github.io') || !repo) return;
+      const r = await fetch(`https://api.github.com/repos/${owner}/${repo}/actions/workflows/update.yml/runs?status=success&per_page=1`);
+      const j = await r.json(); const t = j.workflow_runs?.[0]?.updated_at; if (!t) return;
+      const min = Math.round((Date.now() - new Date(t)) / 60000);
+      $('#meta').textContent += ` · Ultimo controllo: ${min < 1 ? 'adesso' : min < 60 ? min + ' min fa' : Math.round(min/60) + ' h fa'}`;
+    }catch{}
+  }
+})();
+</script>
+</body>
+</html>
