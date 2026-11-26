@@ -151,7 +151,7 @@ footer{color:var(--muted);font-size:12px;text-align:center;margin-top:8px}
     </div>
     <div class="tbl-wrap"><table id="tbl"><thead></thead><tbody></tbody><tfoot></tfoot></table></div>
   </section>
-  <footer id="foot">Aggiornamento automatico ogni ora circa.</footer>
+  <footer id="foot">Aggiornamento automatico ogni 15 minuti circa.</footer>
 </div>
 <div id="tip" class="tip hidden"></div>
 
@@ -221,7 +221,7 @@ footer{color:var(--muted);font-size:12px;text-align:center;margin-top:8px}
   function start(data){
     ROWS = (data.rows || []).filter(r => r.date);
     PAYOUT = data.cpaPayout || null;
-    if (PAYOUT) $('#foot').textContent = `Valore CPA calcolato a ${fmtMoney.format(PAYOUT)} per ogni CPA attiva (gli storni contano in negativo). Aggiornamento automatico ogni ora circa.`;
+    if (PAYOUT) $('#foot').textContent = `Valore CPA calcolato a ${fmtMoney.format(PAYOUT)} per ogni CPA attiva (gli storni contano in negativo). Aggiornamento automatico ogni 15 minuti circa.`;
     if (!ROWS.some(r => r.cpaActive != null)) document.querySelectorAll('.lg-cpa').forEach(e => e.remove());
     metrics = METRICS.filter(m => ROWS.some(r => r[m.k] != null));
     $('#gate').classList.add('hidden'); $('#app').classList.remove('hidden');

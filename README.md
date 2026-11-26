@@ -1,7 +1,7 @@
 # Report Partner
 
 Pagina protetta da password con i dati del Custom Report del portale partner, **senza commissioni**.
-Si aggiorna da sola ogni ora circa con GitHub Actions.
+Si aggiorna da sola ogni 15 minuti circa con GitHub Actions.
 
 ## Cosa è pubblico e cosa no
 

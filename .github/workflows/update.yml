@@ -2,7 +2,7 @@ name: Aggiorna report
 
 on:
   schedule:
-    - cron: '17 * * * *'   # ogni ora al minuto 17 (GitHub può ritardare di qualche minuto)
+    - cron: '7,22,37,52 * * * *'   # ogni 15 minuti (GitHub può ritardare di qualche minuto)
   workflow_dispatch:
     inputs:
       backfill_months:
