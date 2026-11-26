@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: write
+  pages: write
 
 concurrency:
   group: aggiorna-report
@@ -46,4 +47,8 @@ jobs:
           else
             git commit -m "Aggiorna dati report"
             git push
+            # I push fatti dal bot non sempre fanno ripartire GitHub Pages: lo chiedo esplicitamente.
+            node -e "fetch('https://api.github.com/repos/${{ github.repository }}/pages/builds',{method:'POST',headers:{authorization:'Bearer '+process.env.GH_TOKEN,accept:'application/vnd.github+json'}}).then(r=>console.log('Richiesta aggiornamento Pages:',r.status)).catch(e=>console.log('Pages:',e.message))"
           fi
+        env:
+          GH_TOKEN: ${{ github.token }}
