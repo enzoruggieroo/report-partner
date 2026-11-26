@@ -94,13 +94,16 @@ async function openPortal() {
   const browser = await chromium.launch();
   const context = await browser.newContext({ locale: 'en-GB', timezoneId: 'Europe/Rome' });
   const page = await context.newPage();
-  let headers = null; let tier = null;
+  let headers = null; let tier = null; let portalParams = null;
   page.on('request', (req) => {
     const u = new URL(req.url());
     if (u.hostname !== 'affapi.etoro.com') return;
     const h = req.headers();
     if (h.authorization && !headers) headers = h;
-    if (/\/performance\/Aggregate/i.test(u.pathname) && u.searchParams.get('tier')) tier = u.searchParams.get('tier');
+    if (/\/performance\/Aggregate/i.test(u.pathname)) {
+      portalParams = Object.fromEntries(u.searchParams);
+      if (u.searchParams.get('tier')) tier = u.searchParams.get('tier');
+    }
   });
 
   log('Apro il portale…');
@@ -126,11 +129,14 @@ async function openPortal() {
   if (!page.url().includes('custom-report')) await page.goto(PORTAL, { waitUntil: 'domcontentloaded', timeout: 90000 });
   // Aspetto che il portale faccia almeno una chiamata autenticata, poi provo a creare il report per leggere il tier.
   for (let i = 0; i < 60 && !headers; i++) await page.waitForTimeout(500);
-  const btn = page.locator('.my-reports-create-report-btn, button:has-text("Create Report")').first();
+  await page.waitForTimeout(3000);
+  const btn = page.getByRole('button', { name: /create report/i }).or(page.locator('.my-reports-create-report-btn button, button.my-reports-create-report-btn')).first();
   if (await btn.count().catch(() => 0)) {
-    await btn.click().catch(() => {});
-    for (let i = 0; i < 30 && !tier; i++) await page.waitForTimeout(500);
-  }
+    await btn.click({ timeout: 10000 }).catch((e) => log('Click su "Create Report" non riuscito:', e.message.split('\n')[0]));
+    for (let i = 0; i < 30 && !portalParams; i++) await page.waitForTimeout(500);
+  } else log('Pulsante "Create Report" non trovato.');
+  // Solo parametri tecnici (date, numeri di raggruppamento): nessun dato.
+  log('Parametri usati dal portale:', portalParams ? JSON.stringify(portalParams) : 'nessuna chiamata vista');
   if (!headers) { await browser.close(); throw new Error('Login riuscito ma non trovo il token del portale (pagina cambiata?).'); }
   log(`Token acquisito. Tier del report: ${tier ?? 'non letto, uso 1'}.`);
 
@@ -142,13 +148,14 @@ async function openPortal() {
     return { status: r.status, text };
   }, { url: API + path + (params ? '?' + new URLSearchParams(params) : ''), hdrs: pass });
 
-  return { browser, get, tier: tier ?? '1' };
+  return { browser, get, tier: tier ?? '1', portalParams };
 }
 
-async function fetchRange(portal, from, to, showAffiliate) {
-  const params = { fromDate: usDate(from), toDate: usDate(to), tier: portal.tier, Group: String(GROUP), Select: String(SELECT), ShowAffiliateID: String(showAffiliate) };
+async function fetchRange(portal, from, to, combo) {
+  const params = { fromDate: usDate(from), toDate: usDate(to), tier: portal.tier, Group: String(combo.group), Select: String(combo.select), ShowAffiliateID: String(combo.aff) };
   const r = await portal.get('v2/performance/Aggregate', params);
-  if (r.status !== 200) throw new Error(`Aggregate ${ymd(from)}→${ymd(to)}: HTTP ${r.status}`);
+  // In caso di errore il server risponde con un messaggio di validazione (non dati): lo mostro accorciato.
+  if (r.status !== 200) throw new Error(`Aggregate ${ymd(from)}→${ymd(to)}: HTTP ${r.status} ${String(r.text || '').replace(/\s+/g, ' ').slice(0, 300)}`);
   const data = JSON.parse(r.text || '[]');
   return Array.isArray(data) ? data : (data.items || data.data || []);
 }
@@ -178,20 +185,40 @@ async function main() {
     try {
       const c = await portal.get('v1/countries');
       if (c.status === 200) for (const x of JSON.parse(c.text)) countries[x.id] = x.name;
-      // Il portale limita gli intervalli: scarico a blocchi di 60 giorni.
-      let showAffiliate = true;
-      for (let a = from; a <= today; a = addDays(a, 60)) {
-        const b = addDays(a, 59) < today ? addDays(a, 59) : today;
-        let rows;
-        try { rows = await fetchRange(portal, a, b, showAffiliate); }
-        catch (e) {
-          if (!showAffiliate) throw e;
-          log(`Richiesta con dettaglio sub-affiliati non accettata (${e.message}), riprovo senza.`);
-          showAffiliate = false; rows = await fetchRange(portal, a, b, false);
-        }
-        log(`Blocco ${ymd(a)} → ${ymd(b)}: ${rows.length} righe.`);
-        raw.push(...rows);
+      // 1) Trovo una combinazione di colonne accettata dal server, provando sugli ultimi 14 giorni.
+      const pp = portal.portalParams;
+      const combos = [
+        { group: GROUP, select: SELECT, aff: true },
+        { group: GROUP, select: SELECT, aff: false },
+        ...(pp ? [{ group: Number(pp.Group), select: Number(pp.Select), aff: pp.ShowAffiliateID === 'true' }] : []),
+        { group: 1 + 4, select: 4 + 2 + 16, aff: false },
+        { group: 1, select: 4 + 2 + 16, aff: false },
+        { group: 1, select: 4 + 2, aff: false },
+        { group: 1, select: 4, aff: false },
+      ];
+      let combo = null;
+      for (const c of combos) {
+        try { await fetchRange(portal, addDays(today, -14), addDays(today, -1), c); combo = c; break; }
+        catch (e) { log(`Combinazione ${JSON.stringify(c)} rifiutata: ${e.message}`); }
       }
+      if (!combo) throw new Error('Il server ha rifiutato tutte le combinazioni di colonne.');
+      log('Combinazione accettata:', JSON.stringify(combo));
+
+      // 2) Scarico a blocchi di 30 giorni. Se un blocco vecchio viene rifiutato, lo salto.
+      let okBlocks = 0;
+      // Il portale di default arriva a ieri: scarico fino a ieri, poi provo a parte la giornata di oggi.
+      const end = addDays(today, -1);
+      for (let a = from; a <= end; a = addDays(a, 30)) {
+        const b = addDays(a, 29) < end ? addDays(a, 29) : end;
+        try {
+          const rows = await fetchRange(portal, a, b, combo);
+          log(`Blocco ${ymd(a)} → ${ymd(b)}: ${rows.length} righe.`);
+          raw.push(...rows); okBlocks++;
+        } catch (e) { log(`Blocco saltato: ${e.message}`); }
+      }
+      if (!okBlocks) throw new Error('Nessun blocco di date scaricato.');
+      try { const rows = await fetchRange(portal, today, today, combo); log(`Oggi: ${rows.length} righe.`); raw.push(...rows); }
+      catch (e) { log(`Dati di oggi non disponibili: ${e.message}`); }
     } finally { await portal.browser.close(); }
   }
 
