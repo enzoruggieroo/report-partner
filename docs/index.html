@@ -206,7 +206,7 @@ footer{color:var(--muted);font-size:12px;text-align:center;margin-top:8px}
     {k:'ftd', l:'Depositi', f:fmtInt},
     {k:'ftde', l:'Depositi idonei', f:fmtInt},
     {k:'cpaActive', l:'Azione Investita', f:fmtInt},
-    {k:'cpaValue', l:'Valore Azione Investita', f:fmtMoney},
+    {k:'cpaValue', l:'Commissioni', f:fmtMoney},
     {k:'clicks', l:'Click', f:fmtInt},
     {k:'impressions', l:'Impression', f:fmtInt},
     {k:'ftdAmount', l:'Importo primi depositi', f:fmtMoney},
@@ -221,7 +221,7 @@ footer{color:var(--muted);font-size:12px;text-align:center;margin-top:8px}
   function start(data){
     ROWS = (data.rows || []).filter(r => r.date);
     PAYOUT = data.cpaPayout || null;
-    if (PAYOUT) $('#foot').textContent = `Valore calcolato a ${fmtMoney.format(PAYOUT)} per ogni Azione Investita (gli storni contano in negativo). Aggiornamento automatico ogni 15 minuti circa.`;
+    if (PAYOUT) $('#foot').textContent = `Commissioni calcolate a ${fmtMoney.format(PAYOUT)} per ogni Azione Investita (gli storni contano in negativo). Aggiornamento automatico ogni 15 minuti circa.`;
     if (!ROWS.some(r => r.cpaActive != null)) document.querySelectorAll('.lg-cpa').forEach(e => e.remove());
     metrics = METRICS.filter(m => ROWS.some(r => r[m.k] != null));
     $('#gate').classList.add('hidden'); $('#app').classList.remove('hidden');
