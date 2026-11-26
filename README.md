@@ -12,7 +12,7 @@ Si aggiorna da sola ogni 15 minuti circa con GitHub Actions.
 | | I dati in chiaro (solo chi ha la password della pagina) |
 
 Le commissioni, il saldo e i ricavi vengono tolti **prima** della cifratura: non arrivano mai su GitHub.
-Colonne tenute: data, Serial ID, paese, sub-affiliato, registrazioni, FTD, FTD idonei, importi FTD e depositi, click, impression, rimborsi/chargeback.
+Colonne tenute: data, Serial ID, paese, sub-affiliato, registrazioni, depositi (FTD), depositi idonei, importi dei depositi, Azione Investita (CPA attive) e relativo valore, click, impression, rimborsi/chargeback.
 
 ## Configurazione (una volta sola)
 

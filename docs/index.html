@@ -136,9 +136,9 @@ footer{color:var(--muted);font-size:12px;text-align:center;margin-top:8px}
   <section class="card">
     <div class="card-h">
       <h2>Andamento</h2>
-      <div class="legend"><span><i style="background:var(--accent)"></i>Registrazioni</span><span><i style="background:var(--accent-2)"></i>FTD</span><span class="lg-cpa"><i style="background:var(--accent-3)"></i>CPA attive</span></div>
+      <div class="legend"><span><i style="background:var(--accent)"></i>Registrazioni</span><span><i style="background:var(--accent-2)"></i>Depositi</span><span class="lg-cpa"><i style="background:var(--accent-3)"></i>Azione Investita</span></div>
     </div>
-    <svg id="chart" role="img" aria-label="Registrazioni, FTD e CPA attive nel periodo"></svg>
+    <svg id="chart" role="img" aria-label="Registrazioni, Depositi e Azione Investita nel periodo"></svg>
   </section>
 
   <section class="card">
@@ -203,14 +203,14 @@ footer{color:var(--muted);font-size:12px;text-align:center;margin-top:8px}
   // Metriche note (solo quelle presenti nei dati vengono mostrate)
   const METRICS = [
     {k:'registrations', l:'Registrazioni', f:fmtInt},
-    {k:'ftd', l:'FTD', f:fmtInt},
-    {k:'ftde', l:'FTD idonei', f:fmtInt},
-    {k:'cpaActive', l:'CPA attive', f:fmtInt},
-    {k:'cpaValue', l:'Valore CPA', f:fmtMoney},
+    {k:'ftd', l:'Depositi', f:fmtInt},
+    {k:'ftde', l:'Depositi idonei', f:fmtInt},
+    {k:'cpaActive', l:'Azione Investita', f:fmtInt},
+    {k:'cpaValue', l:'Valore Azione Investita', f:fmtMoney},
     {k:'clicks', l:'Click', f:fmtInt},
     {k:'impressions', l:'Impression', f:fmtInt},
-    {k:'ftdAmount', l:'Importo FTD', f:fmtMoney},
-    {k:'depositsAmount', l:'Depositi', f:fmtMoney},
+    {k:'ftdAmount', l:'Importo primi depositi', f:fmtMoney},
+    {k:'depositsAmount', l:'Importo depositi', f:fmtMoney},
     {k:'refundsAndChargebacks', l:'Rimborsi/chargeback', f:fmtMoney},
   ];
   const DIM_LABEL = {date:'Giorno', month:'Mese', campaign:'Serial ID', country:'Paese', affiliateID:'Sub-affiliato'};
@@ -221,7 +221,7 @@ footer{color:var(--muted);font-size:12px;text-align:center;margin-top:8px}
   function start(data){
     ROWS = (data.rows || []).filter(r => r.date);
     PAYOUT = data.cpaPayout || null;
-    if (PAYOUT) $('#foot').textContent = `Valore CPA calcolato a ${fmtMoney.format(PAYOUT)} per ogni CPA attiva (gli storni contano in negativo). Aggiornamento automatico ogni 15 minuti circa.`;
+    if (PAYOUT) $('#foot').textContent = `Valore calcolato a ${fmtMoney.format(PAYOUT)} per ogni Azione Investita (gli storni contano in negativo). Aggiornamento automatico ogni 15 minuti circa.`;
     if (!ROWS.some(r => r.cpaActive != null)) document.querySelectorAll('.lg-cpa').forEach(e => e.remove());
     metrics = METRICS.filter(m => ROWS.some(r => r[m.k] != null));
     $('#gate').classList.add('hidden'); $('#app').classList.remove('hidden');
@@ -286,9 +286,9 @@ footer{color:var(--muted);font-size:12px;text-align:center;margin-top:8px}
   function renderKpis(t){
     const tiles = [];
     for (const m of metrics.filter(m => ['registrations','ftd','cpaActive','cpaValue','clicks','depositsAmount'].includes(m.k)))
-      tiles.push(`<div class="kpi"><div class="l">${m.l}</div><div class="v num">${m.f.format(t[m.k])}</div>${m.k === 'cpaValue' && PAYOUT ? `<div class="s">${fmtMoney.format(PAYOUT)} per CPA attiva</div>` : ''}</div>`);
+      tiles.push(`<div class="kpi"><div class="l">${m.l}</div><div class="v num">${m.f.format(t[m.k])}</div>${m.k === 'cpaValue' && PAYOUT ? `<div class="s">${fmtMoney.format(PAYOUT)} per Azione Investita</div>` : ''}</div>`);
     if ('registrations' in t && 'ftd' in t)
-      tiles.splice(2, 0, `<div class="kpi"><div class="l">Conversione</div><div class="v num">${t.registrations ? fmtPct.format(t.ftd / t.registrations) : '–'}</div><div class="s">FTD su registrazioni</div></div>`);
+      tiles.splice(2, 0, `<div class="kpi"><div class="l">Conversione</div><div class="v num">${t.registrations ? fmtPct.format(t.ftd / t.registrations) : '–'}</div><div class="s">Depositi su registrazioni</div></div>`);
     $('#kpis').innerHTML = tiles.join('');
   }
 
@@ -324,7 +324,7 @@ footer{color:var(--muted);font-size:12px;text-align:center;margin-top:8px}
     const tip = $('#tip');
     svg.querySelectorAll('.hit').forEach(el => {
       const show = (ev) => { const [k, v] = data[+el.dataset.i]; const lab = byMonth ? fmtMon.format(d(k + '-01')) : fmtDay.format(d(k));
-        tip.textContent = `${lab} · ${v.reg} registrazioni · ${v.ftd} FTD` + (hasCpa ? ` · ${v.cpa} CPA` : ''); tip.classList.remove('hidden');
+        tip.textContent = `${lab} · ${v.reg} registrazioni · ${v.ftd} depositi` + (hasCpa ? ` · ${v.cpa} Azione Investita` : ''); tip.classList.remove('hidden');
         const p = ev.touches ? ev.touches[0] : ev; tip.style.left = p.clientX + 'px'; tip.style.top = p.clientY + 'px'; };
       el.addEventListener('mousemove', show); el.addEventListener('touchstart', show, {passive:true});
       el.addEventListener('mouseleave', () => tip.classList.add('hidden'));
