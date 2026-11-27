@@ -8,6 +8,9 @@ on:
       backfill_months:
         description: 'Mesi di storico da scaricare se i dati vanno ricreati'
         default: '12'
+      diag_date:
+        description: 'Solo per controlli: giorno da diagnosticare (AAAA-MM-GG)'
+        default: ''
 
 permissions:
   contents: write
@@ -34,6 +37,7 @@ jobs:
           ETORO_PASSWORD: ${{ secrets.ETORO_PASSWORD }}
           REPORT_PASSWORD: ${{ secrets.REPORT_PASSWORD }}
           BACKFILL_MONTHS: ${{ inputs.backfill_months || '12' }}
+          DIAG_DATE: ${{ inputs.diag_date || '' }}
           SERIAL_FILTER: michelle   # solo i Serial ID che contengono "michelle" (maiuscole/minuscole indifferenti)
           CPA_PAYOUT: '150'         # valore mostrato per ogni CPA attiva
         run: node scripts/update.mjs

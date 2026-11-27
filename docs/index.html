@@ -86,7 +86,7 @@ th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:
 th{font-size:12px;color:var(--muted);font-weight:600;cursor:pointer;user-select:none}
 tfoot td{font-weight:650;border-bottom:0;border-top:2px solid var(--line)}
 .empty{color:var(--muted);text-align:center;padding:28px 0}
-footer{color:var(--muted);font-size:12px;text-align:center;margin-top:8px}
+footer{color:var(--muted);font-size:13px;text-align:center;margin-top:8px;line-height:1.6}
 </style>
 </head>
 <body>
@@ -110,7 +110,6 @@ footer{color:var(--muted);font-size:12px;text-align:center;margin-top:8px}
   <header>
     <div>
       <h1>Report Partner</h1>
-      <div class="meta" id="meta"></div>
     </div>
     <button class="ghost" id="lock" type="button">Esci</button>
   </header>
@@ -151,7 +150,7 @@ footer{color:var(--muted);font-size:12px;text-align:center;margin-top:8px}
     </div>
     <div class="tbl-wrap"><table id="tbl"><thead></thead><tbody></tbody><tfoot></tfoot></table></div>
   </section>
-  <footer id="foot">Aggiornamento automatico ogni 15 minuti circa.</footer>
+  <footer id="foot"><div id="last"></div><div id="next"></div></footer>
 </div>
 <div id="tip" class="tip hidden"></div>
 
@@ -215,19 +214,17 @@ footer{color:var(--muted);font-size:12px;text-align:center;margin-top:8px}
   ];
   const DIM_LABEL = {date:'Giorno', month:'Mese', campaign:'Serial ID', country:'Paese', affiliateID:'Sub-affiliato'};
 
-  let PAYOUT = null;
+  let PAYOUT = null, LAST = null;
   let ROWS = [], metrics = [], state = {from:'', to:'', campaign:'', country:'', aff:'', group:'date', sort:null};
 
   function start(data){
     ROWS = (data.rows || []).filter(r => r.date);
     PAYOUT = data.cpaPayout || null;
-    if (PAYOUT) $('#foot').textContent = `Commissioni calcolate a ${fmtMoney.format(PAYOUT)} per ogni Azione Investita (gli storni contano in negativo). Aggiornamento automatico ogni 15 minuti circa.`;
     if (!ROWS.some(r => r.cpaActive != null)) document.querySelectorAll('.lg-cpa').forEach(e => e.remove());
     metrics = METRICS.filter(m => ROWS.some(r => r[m.k] != null));
     $('#gate').classList.add('hidden'); $('#app').classList.remove('hidden');
-    const upd = new Date(data.updatedAt);
-    $('#meta').textContent = 'Dati cambiati l\'ultima volta: ' + upd.toLocaleString('it-IT', {dateStyle:'medium', timeStyle:'short'});
-    lastCheck();
+    LAST = new Date(data.updatedAt);
+    updateTimes(); lastCheck(); setInterval(updateTimes, 30000); setInterval(lastCheck, 5 * 60000);
 
     fillSelect('campaign', 'f-campaign', 'Tutti');
     fillSelect('country', 'f-country', 'Tutti');
@@ -356,15 +353,31 @@ footer{color:var(--muted);font-size:12px;text-align:center;margin-top:8px}
     });
   }
 
-  // "Ultimo controllo": ora dell'ultima esecuzione riuscita dell'aggiornamento (API pubblica di GitHub)
+  // Ultimo e prossimo aggiornamento. Gli aggiornamenti partono ai minuti 7, 22, 37 e 52 di ogni ora
+  // (GitHub può ritardarli di qualche minuto).
+  const SLOTS = [7, 22, 37, 52];
+  const fmtWhen = (d) => {
+    const now = new Date(), sameDay = d.toDateString() === now.toDateString();
+    const t = d.toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'});
+    return sameDay ? `oggi alle ${t}` : `${d.toLocaleDateString('it-IT', {day:'numeric', month:'short'})} alle ${t}`;
+  };
+  function nextSlot(){
+    const n = new Date(); const d = new Date(n); d.setSeconds(0, 0);
+    for (let i = 0; i < 70; i++){ d.setMinutes(d.getMinutes() + 1); if (SLOTS.includes(d.getMinutes()) && d > n) return d; }
+    return d;
+  }
+  function updateTimes(){
+    if (LAST) $('#last').textContent = `Ultimo aggiornamento: ${fmtWhen(LAST)}`;
+    $('#next').textContent = `Prossimo aggiornamento: ${fmtWhen(nextSlot())} circa`;
+  }
+  // Ora dell'ultima esecuzione riuscita (API pubblica di GitHub); se non raggiungibile resta l'ora dei dati.
   async function lastCheck(){
     try{
       const [owner] = location.hostname.split('.'); const repo = location.pathname.split('/').filter(Boolean)[0];
       if (!location.hostname.endsWith('github.io') || !repo) return;
       const r = await fetch(`https://api.github.com/repos/${owner}/${repo}/actions/workflows/update.yml/runs?status=success&per_page=1`);
       const j = await r.json(); const t = j.workflow_runs?.[0]?.updated_at; if (!t) return;
-      const min = Math.round((Date.now() - new Date(t)) / 60000);
-      $('#meta').textContent += ` · Ultimo controllo: ${min < 1 ? 'adesso' : min < 60 ? min + ' min fa' : Math.round(min/60) + ' h fa'}`;
+      const d = new Date(t); if (!LAST || d > LAST) { LAST = d; updateTimes(); }
     }catch{}
   }
 })();

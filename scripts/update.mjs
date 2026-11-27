@@ -254,6 +254,21 @@ async function main() {
         } catch (e) { log(`Blocco saltato: ${e.message}`); }
       }
       if (!okBlocks) throw new Error('Nessun blocco di date scaricato.');
+      // Diagnosi (solo se lanciata a mano): confronta un giorno senza stampare nomi o importi.
+      const dd = (process.env.DIAG_DATE || '').trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dd)) {
+        const day = new Date(dd + 'T00:00:00Z');
+        const sum = (rs) => rs.reduce((a, r) => a + (Number(r.ftd) || 0), 0);
+        const tot = sum(await fetchRange(portal, day, day, { group: 1, select: 6, aff: false }));
+        const one = await fetchRange(portal, day, day, combo);
+        const rowsDay = raw.filter((r) => normDate(r.date) === dd);
+        const isM = (r) => serialFilter && String(r.campaign ?? '').toLowerCase().includes(serialFilter);
+        log(`Diagnosi ${dd}: depositi Michelle = ${sum(rowsDay.filter(isM))}` +
+          ` (richiesta del solo giorno: ${sum(one.filter(isM))});` +
+          ` totale giornaliero uguale alla somma per Serial ID: ${tot === sum(rowsDay) ? 'sì' : 'no'};` +
+          ` depositi senza Serial ID: ${sum(rowsDay.filter((r) => !r.campaign)) > 0 ? 'sì' : 'no'};` +
+          ` depositi su altri Serial ID: ${sum(rowsDay.filter((r) => r.campaign && !isM(r))) > 0 ? 'sì' : 'no'}.`);
+      }
       try { const rows = await fetchRange(portal, today, today, combo); log(`Oggi: ${rows.length} righe.`); raw.push(...rows); }
       catch (e) { log(`Dati di oggi non disponibili: ${e.message}`); }
     } finally { await portal.browser.close(); }
