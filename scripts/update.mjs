@@ -265,7 +265,8 @@ async function main() {
         const one = await fetchRange(portal, day, day, combo);
         const rowsDay = raw.filter((r) => normDate(r.date) === dd);
         const isM = (r) => serialFilter && String(r.campaign ?? '').toLowerCase().includes(serialFilter);
-        log(`Diagnosi ${dd}: depositi Michelle = ${sum(rowsDay.filter(isM))}` +
+        const regs = (rs) => rs.reduce((a, r) => a + (Number(r.registrations) || 0), 0);
+        log(`Diagnosi ${dd}: registrazioni Michelle = ${regs(rowsDay.filter(isM))}, depositi Michelle = ${sum(rowsDay.filter(isM))}` +
           ` (richiesta del solo giorno: ${sum(one.filter(isM))});` +
           ` totale giornaliero uguale alla somma per Serial ID: ${tot === sum(rowsDay) ? 'sì' : 'no'};` +
           ` depositi senza Serial ID: ${sum(rowsDay.filter((r) => !r.campaign)) > 0 ? 'sì' : 'no'};` +
@@ -312,6 +313,12 @@ async function main() {
   for (const r of fresh) map.set(rowKey(r), r);
   const rows = [...map.values()].sort((a, b) => String(a.date).localeCompare(String(b.date)));
 
+  // Diagnosi (solo a mano): cosa finisce nella pagina per quel giorno. Solo numeri già visibili a Michelle.
+  const dd = (process.env.DIAG_DATE || '').trim();
+  if (dd) {
+    const day = rows.filter((r) => r.date === dd);
+    log(`Diagnosi pagina ${dd}: righe ${day.length}, registrazioni ${day.reduce((a, r) => a + (r.registrations || 0), 0)}, depositi ${day.reduce((a, r) => a + (r.ftd || 0), 0)}.`);
+  }
   const same = prev && JSON.stringify(prev.rows) === JSON.stringify(rows);
   if (same) { log(`Nessuna novità (${rows.length} righe): non scrivo nulla.`); return; }
 
