@@ -54,9 +54,12 @@ header h1{font-size:22px;margin:0}
 .chips::-webkit-scrollbar{display:none}
 .chip{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 13px;font-size:14px;cursor:pointer}
 .chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
-.filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:16px}
+.filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:16px}
 .filters label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
-.filters input,.filters select{padding:9px 10px;border-radius:10px;border:1px solid var(--line);background:var(--surface);min-width:0;width:100%}
+.filters input,.filters select{padding:9px 10px;border-radius:10px;border:1px solid var(--line);background:var(--surface);min-width:0;width:100%;max-width:100%;display:block;box-sizing:border-box}
+.filters label{min-width:0}
+.filters input[type=date]{-webkit-appearance:none;appearance:none;min-height:40px;text-align:left}
+.filters input[type=date]::-webkit-date-and-time-value{text-align:left}
 
 /* kpis */
 .kpis{display:grid;gap:10px;margin-bottom:16px}
@@ -123,8 +126,6 @@ footer{color:var(--muted);font-size:13px;text-align:center;margin-top:8px;line-h
   </header>
 
   <div class="chips" id="presets" role="group" aria-label="Periodo">
-    <button class="chip" data-p="7">7 giorni</button>
-    <button class="chip" data-p="30">30 giorni</button>
     <button class="chip" data-p="month">Questo mese</button>
     <button class="chip" data-p="prev">Mese scorso</button>
     <button class="chip" data-p="year">Quest'anno</button>
@@ -255,7 +256,7 @@ footer{color:var(--muted);font-size:13px;text-align:center;margin-top:8px;line-h
     for (const b of document.querySelectorAll('#presets .chip')) b.onclick = () => preset(b.dataset.p);
     $('#from').onchange = (e) => { state.from = e.target.value; markPreset(null); render(); };
     $('#to').onchange = (e) => { state.to = e.target.value; markPreset(null); render(); };
-    preset('30');
+    preset('month');
   }
 
   function fillSelect(key, wrapId, allLabel, stateKey){
