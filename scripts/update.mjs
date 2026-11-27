@@ -24,8 +24,7 @@ const OUT = new URL('../docs/data.enc.json', import.meta.url);
 // Colonne ammesse nella pagina. Tutto ciò che non è qui viene scartato.
 const ALLOW = [
   'date', 'month', 'campaign', 'countryId', 'bannerName', 'affiliateID',
-  'registrations', 'ftd', 'ftde', 'ftdAmount', 'ftdeAmount', 'depositsAmount',
-  'refundsAndChargebacks',
+  'registrations', 'ftd', 'depositsAmount',
 ];
 // Rete di sicurezza: anche se finissero nell'elenco sopra, questi campi non passano mai.
 const DENY = /commission|cpa|revenue|percentage|payout|payment(?!.*eligible)|balance|earning|income|profit|bonus/i;
@@ -197,7 +196,7 @@ async function main() {
   const serialFilter = (process.env.SERIAL_FILTER || '').trim().toLowerCase();
   const payout = Number(process.env.CPA_PAYOUT || 0);
   // Impronta delle impostazioni (non leggibile): serve solo a capire quando ricostruire i dati.
-  const config = Buffer.from(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify({ v: 4, serialFilter, payout })))).toString('hex').slice(0, 16);
+  const config = Buffer.from(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify({ v: 5, serialFilter, payout })))).toString('hex').slice(0, 16);
 
   let prev = null;
   if (existsSync(OUT)) {
@@ -318,8 +317,8 @@ async function main() {
 
   const payload = { updatedAt: new Date().toISOString(), config, cpaPayout: payout || null, rows };
   // Blocco di sicurezza: se una riga contiene una chiave non prevista, non pubblico nulla.
-  const OUT_KEYS = new Set(['date', 'month', 'campaign', 'country', 'bannerName', 'affiliateID', 'registrations', 'ftd', 'ftde',
-    'ftdAmount', 'ftdeAmount', 'depositsAmount', 'refundsAndChargebacks', 'cpaActive', 'cpaValue']);
+  const OUT_KEYS = new Set(['date', 'month', 'campaign', 'country', 'bannerName', 'affiliateID', 'registrations', 'ftd',
+    'depositsAmount', 'cpaActive', 'cpaValue']);
   for (const r of rows) for (const k of Object.keys(r)) if (!OUT_KEYS.has(k)) throw new Error('Chiave non prevista nei dati: pubblicazione bloccata.');
   await writeFile(OUT, JSON.stringify(await encrypt(payload, reportPassword)) + '\n');
   log(`Dati aggiornati e cifrati: ${rows.length} righe.`);

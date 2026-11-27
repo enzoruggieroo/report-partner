@@ -211,12 +211,9 @@ footer{color:var(--muted);font-size:13px;text-align:center;margin-top:8px;line-h
   const METRICS = [
     {k:'registrations', l:'Registrazioni', f:fmtInt},
     {k:'ftd', l:'Depositi', f:fmtInt},
-    {k:'ftde', l:'Depositi idonei', f:fmtInt},
+    {k:'depositsAmount', l:'Importo depositi', f:fmtMoney},
     {k:'cpaActive', l:'Azione Investita', f:fmtInt},
     {k:'cpaValue', l:'Commissioni', f:fmtMoney},
-    {k:'ftdAmount', l:'Importo primi depositi', f:fmtMoney},
-    {k:'depositsAmount', l:'Importo depositi', f:fmtMoney},
-    {k:'refundsAndChargebacks', l:'Rimborsi/chargeback', f:fmtMoney},
   ];
   const DIM_LABEL = {date:'Giorno', month:'Mese', country:'Paese', affiliateID:'Sub-affiliato'};
 
@@ -361,7 +358,7 @@ footer{color:var(--muted);font-size:13px;text-align:center;margin-top:8px;line-h
       return (typeof va === 'number' ? va - vb : String(va).localeCompare(String(vb), 'it', {numeric:true})) * s.dir; });
     const conv = metrics.some(m => m.k === 'registrations') && metrics.some(m => m.k === 'ftd');
     const cols = [{k:'k', l:DIM_LABEL[g]}, ...metrics.map(m => ({k:m.k, l:m.l}))];
-    if (conv) cols.splice(3, 0, {k:'_conv', l:'Conv.'});
+
     const label = (k) => g === 'date' ? fmtDay.format(d(k)) : g === 'month' ? fmtMon.format(d(k + '-01')) : esc(k);
     const cell = (c, t) => c.k === '_conv' ? (t.registrations ? fmtPct.format(t.ftd / t.registrations) : '–') : metrics.find(m => m.k === c.k).f.format(t[c.k]);
     $('#tbl thead').innerHTML = '<tr>' + cols.map(c => `<th data-c="${c.k}">${c.l}${s.col === c.k ? (s.dir > 0 ? ' ↑' : ' ↓') : ''}</th>`).join('') + '</tr>';
