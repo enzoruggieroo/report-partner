@@ -273,7 +273,19 @@ async function main() {
     const kept = new Set(raw.map((r) => String(r.campaign)));
     log(`Filtro Serial ID: ${kept.size} Serial ID su ${serials.size} corrispondono, ${raw.length} righe tenute.`);
   }
-  const fresh = raw.map((r) => clean(r, countries, { rate, payout }));
+  // Il portale può restituire più righe per lo stesso giorno e Serial ID (es. divise per prodotto):
+  // vanno SOMMATE, non sovrascritte, altrimenti si perdono depositi.
+  if (raw.length) log('Formato data ricevuto:', String(raw[0].date ?? '').replace(/\d/g, '9'));
+  const DIMS = ['date', 'month', 'campaign', 'country', 'bannerName', 'affiliateID'];
+  const agg = new Map(); let merged = 0;
+  for (const r of raw.map((x) => clean(x, countries, { rate, payout }))) {
+    const k = rowKey(r); const a = agg.get(k);
+    if (!a) { agg.set(k, { ...r }); continue; }
+    merged++;
+    for (const [field, v] of Object.entries(r)) if (!DIMS.includes(field) && typeof v === 'number') a[field] = (Number(a[field]) || 0) + v;
+  }
+  log(`Righe unite (stesso giorno e Serial ID): ${merged}.`);
+  const fresh = [...agg.values()];
   log(`Colonne escluse: ${seenDropped.size}.`);
 
   // Unione con lo storico: i giorni nella finestra appena scaricata vengono sostituiti.
