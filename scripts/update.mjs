@@ -25,7 +25,7 @@ const OUT = new URL('../docs/data.enc.json', import.meta.url);
 const ALLOW = [
   'date', 'month', 'campaign', 'countryId', 'bannerName', 'affiliateID',
   'registrations', 'ftd', 'ftde', 'ftdAmount', 'ftdeAmount', 'depositsAmount',
-  'clicks', 'impressions', 'refundsAndChargebacks',
+  'refundsAndChargebacks',
 ];
 // Rete di sicurezza: anche se finissero nell'elenco sopra, questi campi non passano mai.
 const DENY = /commission|cpa|revenue|percentage|payout|payment(?!.*eligible)|balance|earning|income|profit|bonus/i;
@@ -94,6 +94,8 @@ function clean(row, countries, cpa) {
     out.cpaActive = n;
     if (cpa.payout) out.cpaValue = n * cpa.payout;
   }
+  // Con il filtro attivo il Serial ID non serve nella pagina: le righe vengono sommate per giorno.
+  if (cpa?.dropSerial) delete out.campaign;
   return out;
 }
 
@@ -194,7 +196,8 @@ async function main() {
   const refreshDays = Number(process.env.REFRESH_DAYS || 45);
   const serialFilter = (process.env.SERIAL_FILTER || '').trim().toLowerCase();
   const payout = Number(process.env.CPA_PAYOUT || 0);
-  const config = { v: 3, serialFilter, payout };
+  // Impronta delle impostazioni (non leggibile): serve solo a capire quando ricostruire i dati.
+  const config = Buffer.from(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify({ v: 4, serialFilter, payout })))).toString('hex').slice(0, 16);
 
   let prev = null;
   if (existsSync(OUT)) {
@@ -293,13 +296,13 @@ async function main() {
   if (raw.length) log('Formato data ricevuto:', String(raw[0].date ?? '').replace(/\d/g, '9'));
   const DIMS = ['date', 'month', 'campaign', 'country', 'bannerName', 'affiliateID'];
   const agg = new Map(); let merged = 0;
-  for (const r of raw.map((x) => clean(x, countries, { rate, payout }))) {
+  for (const r of raw.map((x) => clean(x, countries, { rate, payout, dropSerial: !!serialFilter }))) {
     const k = rowKey(r); const a = agg.get(k);
     if (!a) { agg.set(k, { ...r }); continue; }
     merged++;
     for (const [field, v] of Object.entries(r)) if (!DIMS.includes(field) && typeof v === 'number') a[field] = (Number(a[field]) || 0) + v;
   }
-  log(`Righe unite (stesso giorno e Serial ID): ${merged}.`);
+  log(`Righe unite per giorno: ${merged}.`);
   const fresh = [...agg.values()];
   log(`Colonne escluse: ${seenDropped.size}.`);
 
@@ -316,7 +319,7 @@ async function main() {
   const payload = { updatedAt: new Date().toISOString(), config, cpaPayout: payout || null, rows };
   // Blocco di sicurezza: se una riga contiene una chiave non prevista, non pubblico nulla.
   const OUT_KEYS = new Set(['date', 'month', 'campaign', 'country', 'bannerName', 'affiliateID', 'registrations', 'ftd', 'ftde',
-    'ftdAmount', 'ftdeAmount', 'depositsAmount', 'clicks', 'impressions', 'refundsAndChargebacks', 'cpaActive', 'cpaValue']);
+    'ftdAmount', 'ftdeAmount', 'depositsAmount', 'refundsAndChargebacks', 'cpaActive', 'cpaValue']);
   for (const r of rows) for (const k of Object.keys(r)) if (!OUT_KEYS.has(k)) throw new Error('Chiave non prevista nei dati: pubblicazione bloccata.');
   await writeFile(OUT, JSON.stringify(await encrypt(payload, reportPassword)) + '\n');
   log(`Dati aggiornati e cifrati: ${rows.length} righe.`);

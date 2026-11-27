@@ -59,7 +59,15 @@ header h1{font-size:22px;margin:0}
 .filters input,.filters select{padding:9px 10px;border-radius:10px;border:1px solid var(--line);background:var(--surface);min-width:0;width:100%}
 
 /* kpis */
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
+.kpis{display:grid;gap:10px;margin-bottom:16px}
+.kpi-row{display:grid;gap:10px}
+.kpi-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.kpi-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.kpi-3 .kpi{padding:12px}
+.kpi-3 .v{font-size:clamp(17px,4.6vw,26px);white-space:nowrap}
+.kpi-3 .s{font-size:11px}
+.kpi-3 .l{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (max-width:359px){.kpi-3{grid-template-columns:1fr 1fr}.kpi-3 .kpi:last-child{grid-column:1 / -1}}
 .kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px;box-shadow:var(--shadow)}
 .kpi .l{font-size:13px;color:var(--muted)}
 .kpi .v{font-size:26px;font-weight:650;letter-spacing:-.02em;margin-top:2px}
@@ -125,7 +133,6 @@ footer{color:var(--muted);font-size:13px;text-align:center;margin-top:8px;line-h
   <div class="filters">
     <label>Dal<input type="date" id="from"></label>
     <label>Al<input type="date" id="to"></label>
-    <label id="f-campaign">Serial ID<select id="campaign"></select></label>
     <label id="f-country">Paese<select id="country"></select></label>
     <label id="f-aff">Sub-affiliato<select id="aff"></select></label>
   </div>
@@ -145,7 +152,7 @@ footer{color:var(--muted);font-size:13px;text-align:center;margin-top:8px;line-h
       <h2>Dettaglio</h2>
       <div class="seg" id="groupBy" role="group" aria-label="Raggruppa per">
         <button data-g="date">Giorno</button><button data-g="month">Mese</button>
-        <button data-g="campaign">Serial ID</button><button data-g="country">Paese</button><button data-g="affiliateID">Sub-affiliato</button>
+<button data-g="country">Paese</button><button data-g="affiliateID">Sub-affiliato</button>
       </div>
     </div>
     <div class="tbl-wrap"><table id="tbl"><thead></thead><tbody></tbody><tfoot></tfoot></table></div>
@@ -206,13 +213,11 @@ footer{color:var(--muted);font-size:13px;text-align:center;margin-top:8px;line-h
     {k:'ftde', l:'Depositi idonei', f:fmtInt},
     {k:'cpaActive', l:'Azione Investita', f:fmtInt},
     {k:'cpaValue', l:'Commissioni', f:fmtMoney},
-    {k:'clicks', l:'Click', f:fmtInt},
-    {k:'impressions', l:'Impression', f:fmtInt},
     {k:'ftdAmount', l:'Importo primi depositi', f:fmtMoney},
     {k:'depositsAmount', l:'Importo depositi', f:fmtMoney},
     {k:'refundsAndChargebacks', l:'Rimborsi/chargeback', f:fmtMoney},
   ];
-  const DIM_LABEL = {date:'Giorno', month:'Mese', campaign:'Serial ID', country:'Paese', affiliateID:'Sub-affiliato'};
+  const DIM_LABEL = {date:'Giorno', month:'Mese', country:'Paese', affiliateID:'Sub-affiliato'};
 
   let PAYOUT = null, LAST = null, PW = null, STARTED = false;
   let ROWS = [], metrics = [], state = {from:'', to:'', campaign:'', country:'', aff:'', group:'date', sort:null};
@@ -240,7 +245,6 @@ footer{color:var(--muted);font-size:13px;text-align:center;margin-top:8px;line-h
     LAST = new Date(data.updatedAt);
     updateTimes(); lastCheck(); setInterval(updateTimes, 30000); setInterval(lastCheck, 5 * 60000);
 
-    fillSelect('campaign', 'f-campaign', 'Tutti');
     fillSelect('country', 'f-country', 'Tutti');
     fillSelect('affiliateID', 'f-aff', 'Tutti', 'aff');
     for (const b of document.querySelectorAll('#groupBy button')){
@@ -278,7 +282,6 @@ footer{color:var(--muted);font-size:13px;text-align:center;margin-top:8px;line-h
 
   function filtered(){
     return ROWS.filter(r => (!state.from || r.date >= state.from) && (!state.to || r.date <= state.to)
-      && (!state.campaign || String(r.campaign) === state.campaign)
       && (!state.country || r.country === state.country)
       && (!state.aff || String(r.affiliateID) === state.aff));
   }
@@ -295,12 +298,15 @@ footer{color:var(--muted);font-size:13px;text-align:center;margin-top:8px;line-h
   }
 
   function renderKpis(t){
-    const tiles = [];
-    for (const m of metrics.filter(m => ['registrations','ftd','cpaActive','cpaValue','clicks','depositsAmount'].includes(m.k)))
-      tiles.push(`<div class="kpi"><div class="l">${m.l}</div><div class="v num">${m.f.format(t[m.k])}</div>${m.k === 'cpaValue' && PAYOUT ? `<div class="s">${fmtMoney.format(PAYOUT)} per Azione Investita</div>` : ''}</div>`);
-    if ('registrations' in t && 'ftd' in t)
-      tiles.splice(2, 0, `<div class="kpi"><div class="l">Conversione</div><div class="v num">${t.registrations ? fmtPct.format(t.ftd / t.registrations) : '–'}</div><div class="s">Depositi su registrazioni</div></div>`);
-    $('#kpis').innerHTML = tiles.join('');
+    const tile = (l, v, sub) => `<div class="kpi"><div class="l">${l}</div><div class="v num">${v}</div>${sub ? `<div class="s">${sub}</div>` : ''}</div>`;
+    const has = (k) => metrics.some(m => m.k === k);
+    const top = [], bottom = [];
+    if (has('registrations')) top.push(tile('Registrazioni', fmtInt.format(t.registrations)));
+    if (has('ftd')) top.push(tile('Depositi', fmtInt.format(t.ftd)));
+    if (has('cpaValue')) top.push(tile('Commissioni', fmtMoney.format(t.cpaValue), PAYOUT ? `${fmtMoney.format(PAYOUT)} per azione` : ''));
+    if (has('registrations') && has('ftd')) bottom.push(tile('Conversione', t.registrations ? fmtPct.format(t.ftd / t.registrations) : '–', 'Depositi su registrazioni'));
+    if (has('depositsAmount')) bottom.push(tile('Importo depositi', fmtMoney.format(t.depositsAmount)));
+    $('#kpis').innerHTML = `<div class="kpi-row kpi-3">${top.join('')}</div><div class="kpi-row kpi-2">${bottom.join('')}</div>`;
   }
 
   function renderChart(rows){
