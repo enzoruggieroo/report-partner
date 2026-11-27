@@ -180,7 +180,7 @@ footer{color:var(--muted);font-size:13px;text-align:center;margin-top:8px;line-h
       const box = await loadBox();
       const data = await decrypt(box, pw);
       if (remember) store.set(KEY, pw); else store.del(KEY);
-      start(data);
+      PW = pw; start(data);
     }catch(e){
       $('#err').textContent = e.message === 'nodata' ? 'Il report non è ancora disponibile. Riprova più tardi.' : 'Password errata.';
       store.del(KEY);
@@ -214,10 +214,24 @@ footer{color:var(--muted);font-size:13px;text-align:center;margin-top:8px;line-h
   ];
   const DIM_LABEL = {date:'Giorno', month:'Mese', campaign:'Serial ID', country:'Paese', affiliateID:'Sub-affiliato'};
 
-  let PAYOUT = null, LAST = null;
+  let PAYOUT = null, LAST = null, PW = null, STARTED = false;
   let ROWS = [], metrics = [], state = {from:'', to:'', campaign:'', country:'', aff:'', group:'date', sort:null};
 
+  // Ricarica i dati ogni 5 minuti mentre la pagina è aperta, mantenendo filtri e periodo scelti.
+  async function refresh(){
+    try{
+      const data = await decrypt(await loadBox(), PW);
+      if (LAST && new Date(data.updatedAt) <= LAST && ROWS.length === (data.rows || []).length && JSON.stringify(data.rows) === JSON.stringify(ROWS)) return;
+      ROWS = (data.rows || []).filter(r => r.date);
+      if (!LAST || new Date(data.updatedAt) > LAST) LAST = new Date(data.updatedAt);
+      updateTimes(); render();
+    }catch{}
+  }
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && PW) { refresh(); lastCheck(); } });
+
   function start(data){
+    if (STARTED) return; STARTED = true;
+    setInterval(refresh, 5 * 60000);
     ROWS = (data.rows || []).filter(r => r.date);
     PAYOUT = data.cpaPayout || null;
     if (!ROWS.some(r => r.cpaActive != null)) document.querySelectorAll('.lg-cpa').forEach(e => e.remove());
