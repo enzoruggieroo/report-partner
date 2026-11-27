@@ -178,7 +178,11 @@ async function fetchRange(portal, from, to, combo) {
   const params = { fromDate: usDate(from), toDate: usDate(to), tier: portal.tier, Group: String(combo.group), Select: String(combo.select), ShowAffiliateID: String(combo.aff) };
   const r = await portal.get('v2/performance/Aggregate', params);
   // In caso di errore il server risponde con un messaggio di validazione (non dati): lo mostro accorciato.
-  if (r.status !== 200) throw new Error(`Aggregate ${ymd(from)}→${ymd(to)}: HTTP ${r.status} ${String(r.text || '').replace(/\s+/g, ' ').slice(0, 300)}`);
+  // In caso di errore mostro SOLO il codice d'errore del server, mai il contenuto della risposta.
+  if (r.status !== 200) {
+    let code = ''; try { code = JSON.parse(r.text).errorCode || ''; } catch {}
+    throw new Error(`Aggregate ${ymd(from)}→${ymd(to)}: HTTP ${r.status}${code ? ' ' + String(code).slice(0, 40) : ''}`);
+  }
   const data = JSON.parse(r.text || '[]');
   return Array.isArray(data) ? data : (data.items || data.data || []);
 }
@@ -196,7 +200,7 @@ async function main() {
   if (existsSync(OUT)) {
     try { prev = await decrypt(JSON.parse(await readFile(OUT, 'utf8')), reportPassword); log(`Dati esistenti: ${prev.rows.length} righe.`); }
     catch { log('Non riesco a leggere i dati esistenti (password cambiata?): li ricreo da zero.'); }
-    if (prev && JSON.stringify(prev.config) !== JSON.stringify(config)) { log('Impostazioni cambiate (filtro o valore CPA): ricreo i dati da zero.'); prev = null; }
+    if (prev && JSON.stringify(prev.config) !== JSON.stringify(config)) { log('Impostazioni cambiate: ricreo i dati da zero.'); prev = null; }
   }
 
   const today = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate()));
@@ -255,11 +259,11 @@ async function main() {
     } finally { await portal.browser.close(); }
   }
 
-  if (raw.length) log('Colonne ricevute dal portale:', Object.keys(Object.assign({}, ...raw.slice(0, 50))).join(', '));
+
 
   // Tariffa CPA dedotta da TUTTE le righe (più dati = stima più sicura). Non viene mai stampata.
   const rate = inferCpaRate(raw);
-  log(rate ? 'Tariffa CPA dedotta dai dati (non mostrata).' : 'Tariffa CPA non deducibile: conto le CPA dagli FTD idonei.');
+  log(rate ? 'Conteggio Azioni Investite pronto.' : 'Conteggio Azioni Investite dai depositi idonei.');
 
   // Filtro Serial ID: le righe degli altri vengono scartate qui, prima di qualsiasi salvataggio.
   if (serialFilter) {
@@ -270,7 +274,7 @@ async function main() {
     log(`Filtro Serial ID: ${kept.size} Serial ID su ${serials.size} corrispondono, ${raw.length} righe tenute.`);
   }
   const fresh = raw.map((r) => clean(r, countries, { rate, payout }));
-  if (seenDropped.size) log('Colonne ESCLUSE dalla pagina:', [...seenDropped].join(', '));
+  log(`Colonne escluse: ${seenDropped.size}.`);
 
   // Unione con lo storico: i giorni nella finestra appena scaricata vengono sostituiti.
   const fromStr = ymd(from);
@@ -283,6 +287,10 @@ async function main() {
   if (same) { log(`Nessuna novità (${rows.length} righe): non scrivo nulla.`); return; }
 
   const payload = { updatedAt: new Date().toISOString(), config, cpaPayout: payout || null, rows };
+  // Blocco di sicurezza: se una riga contiene una chiave non prevista, non pubblico nulla.
+  const OUT_KEYS = new Set(['date', 'month', 'campaign', 'country', 'bannerName', 'affiliateID', 'registrations', 'ftd', 'ftde',
+    'ftdAmount', 'ftdeAmount', 'depositsAmount', 'clicks', 'impressions', 'refundsAndChargebacks', 'cpaActive', 'cpaValue']);
+  for (const r of rows) for (const k of Object.keys(r)) if (!OUT_KEYS.has(k)) throw new Error('Chiave non prevista nei dati: pubblicazione bloccata.');
   await writeFile(OUT, JSON.stringify(await encrypt(payload, reportPassword)) + '\n');
   log(`Dati aggiornati e cifrati: ${rows.length} righe.`);
 }
