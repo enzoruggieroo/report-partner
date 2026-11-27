@@ -194,7 +194,7 @@ async function main() {
   const refreshDays = Number(process.env.REFRESH_DAYS || 45);
   const serialFilter = (process.env.SERIAL_FILTER || '').trim().toLowerCase();
   const payout = Number(process.env.CPA_PAYOUT || 0);
-  const config = { v: 2, serialFilter, payout };
+  const config = { v: 3, serialFilter, payout };
 
   let prev = null;
   if (existsSync(OUT)) {
